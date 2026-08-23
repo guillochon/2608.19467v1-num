@@ -144,6 +144,21 @@ of numerator by denominator.
 Exact L: C logs in `data/task2_C_tower_m1_12.txt`, `data/task2_C_tower_m13_16.txt`;
 Py JSON in `data/task2_py_tower_m1_12.json`, `data/task2_py_tower_m13_16.json`.
 
+**Wall times (n=80 tower), same machine as `data/hardware.txt`:**
+12th Gen Intel Core i5-12600K (8 cores / 16 threads), 16 GB RAM, WSL2 Linux.
+
+| engine | range | wall | max RSS |
+|---|---|---|---|
+| C (`c5blowup`, mpq grid) | m=1–12 (n=5..60) | **17.50 s** | 65 MB |
+| C | m=13–16 (n=65..80) | **170.79 s** | 361 MB |
+| C | m=1–16 total | **188.3 s** | 361 MB |
+| Py (layer DP) | m=1–12 | **7.76 s** (sum of per-m) | — |
+| Py | m=16 (n=80) | **14.44 s** | — |
+| Py | m=13–16 | **43.2 s** | — |
+
+The C n=80 run (1.42 million quotient states of `mpq`) is the piece that sits
+beyond the paper's \(O(n\,2^n)\) subset-recurrence reach.
+
 ---
 
 ## Result D — Growth constant
@@ -161,8 +176,10 @@ Least squares of \(e(n)=c+a(\log_2 n)/n+b/n\) on the tower:
 | all m≥10 | 0.362818 | 0.878 | −2.967 | 2.9e-6 | +0.00214 |
 
 All fitted c are **strictly above** the entropy constant, but the gap shrinks as
-the window moves to larger m. An honest interval from this range of n is
-**c ∈ (0.360, 0.367)**; we do **not** claim a proof that
+the window moves to larger m. The honest reading of these windows is
+**c ≈ 0.363–0.366**, above \(1/(4\ln 2)\) in the fits **but not provably**.
+Per-point residuals and the odd/even splits are in `data/task3_fit.json`
+(`fits.*.points` and `parity_e_rows`). We do **not** claim a proof that
 \(\lim e(n)>1/(4\ln 2)\).
 
 The theoretically cleaner leading term is the min-cost insertion path W
@@ -182,18 +199,108 @@ order. The numerics are compatible with this but do not prove it.
 
 ## Result E — Gap orders n=16 and n=18
 
-### Aut threshold (Lemma 17 / bound (1))
+### Aut threshold (Lemma 17 / bound (1)) — exact rationals
 
-\(P_n=\prod_{i=1}^n\binom{i-1}{\lfloor(i-1)/2\rfloor}\).
-A graph with \(L(G)<L(K_{\mathrm{bal}})\) must have
-\(|\mathrm{Aut}(G)| > 1/(L(K_{\mathrm{bal}})P_n)\).
+Bound (1): \(L(G)\ge 1/(|\mathrm{Aut}(G)|\,P_n)\) with
+\[
+P_n=\prod_{i=1}^n\binom{i-1}{\lfloor(i-1)/2\rfloor}.
+\]
+Hence \(L(G)<L(K_{\mathrm{bal}})\) forces
+\(|\mathrm{Aut}(G)| > T:=1/(L(K_{\mathrm{bal}})P_n)\). The integer threshold is
+the least integer strictly greater than that rational.
 
-| n | T = 1/(L P_n) | necessary \|Aut\| | matches paper |
+For n=16 the central-binomial factors of \(P_{16}\) are
+\[
+1,1,2,3,6,10,20,35,70,126,252,462,924,1716,3432,6435,
+\]
+so \(P_{16}=9061429740221589431500800000\). Recurrence (6) gives
+\[
+L(K_{8,8})=\frac{7628328998218493}{107497751435913928580204708114517196800000000000},
+\]
+and therefore
+\[
+T_{16}=\frac{11863221866496000000}{7628328998218493}\approx 1555.1534116143.
+\]
+Integer threshold **1556**, matching the paper. For n=18,
+\[
+T_{18}=\frac{1016440849521377280000000}{2200453451294991512083}\approx 461.9233589891,
+\]
+integer threshold **462**. Full factor tables for n=13,14,16,18:
+`data/task4_T_exact.json` (all `matches_paper: true`).
+C subset recurrence agrees with (6) on \(L(K_{8,8})\) and \(L(K_{9,9})\).
+
+### Paper §5 coverage (lifted, not reinvented)
+
+The paper does **not** enumerate graphs. It enumerates conjugacy classes of
+subgroups \(\Gamma\le S_n\) with \(|\Gamma|\ge T\), then takes unions of
+\(\Gamma\)-orbitals on unordered pairs. Coverage: every subgroup of \(S_n\)
+of order \(\ge T\) occurs in a chain of maximal subgroups descending from
+\(S_n\), so appears (up to conjugacy in \(S_n\)) in that walk. Over-generation
+is harmless; under-coverage would silently break the proof.
+
+Forced-twin test (paper §5): if some \(u\neq v\) have \(\{u,w\}\) and \(\{v,w\}\)
+in the same pair-orbit for every \(w\notin\{u,v\}\), then every \(\Gamma\)-invariant
+graph makes \(u,v\) twins. At n=16 the paper reports 116597 classes above
+T=1556, of which 116553 force twins (not expanded) and 44 twin-free classes
+give 128 isomorphism classes, none below \(K_{8,8}\). Twin graphs are covered
+only as blow-ups through base order 8, so unrestricted n=16 remains open there.
+
+A pruning “product of constituent orders \(< T\)” is valid. A claim “covered
+because the transitive constituents were enumerated” is **not** automatically
+valid: \(\mathrm{Aut}(G)\) is a subdirect product of its constituents, so
+\(|\mathrm{Aut}|\) can lie far below the product. The coverage lemma we use
+is exactly the paper’s: for every 2-closed \(Q\le S_n\) with \(|Q|\ge T\),
+some enumerated \(P\le Q\), hence every \(Q\)-invariant graph appears among
+the unions of \(P\)-orbitals.
+
+### Vertex-transitive graphs (unconditional)
+
+If \(\mathrm{Aut}(G)\) is transitive then \(G\) is vertex-transitive.
+We evaluate the **complete** Holt–Royle census of vertex-transitive graphs
+(Zenodo [10.5281/zenodo.4010122](https://doi.org/10.5281/zenodo.4010122),
+arXiv:1811.09015), which is the standard distribution of the McKay–Royle
+VT census: every VT graph of order n, **including disconnected** graphs
+(equal-order disjoint unions of a connected VT graph) and both a graph and
+its complement (stored by valency). \(L(G)=L(\overline{G})\) halves the work.
+
+| n | census lines (all valencies) | unique labelled | complement-pairs evaluated | \|Aut\|≥T | min \(L/L(K_{\mathrm{bal}})\) | beat \(K_{\mathrm{bal}}\)? |
+|---|---|---|---|---|---|---|
+| 16 | 286 | 286 | 143 | 19 | **1** (attained by \(K_{8,8}\cong\overline{2K_8}\)) | no |
+| 18 | 380 | 380 | 190 | 31 | **1** (attained by \(K_{9,9}\cong\overline{2K_9}\)) | no |
+
+At n=16 the 286 lines split as 272 connected + 14 disconnected, matching the
+classical connected-VT count. Tables: `data/task4_vt16.tsv`, `data/task4_vt18.tsv`
+(id, graph6, \|Aut\|, exact L, exact ratio). JSON with provenance:
+`data/task4_vt16.json`, `data/task4_vt18.json`. Evaluator: Py subset recurrence
+with nauty `labelg` canon and `code/g6aut` for \|Aut\| (16! printed in
+scientific notation; parsed as an integer via `Decimal`). Wall: 60.4 s (n=16),
+373.8 s (n=18).
+
+**Theorem (VT case).** Among all vertex-transitive graphs on 16 vertices,
+including disconnected ones, the unique minimum of \(L\) (up to complement)
+is \(K_{8,8}\). The same holds at n=18 with unique minimum \(K_{9,9}\).
+This does **not** use bound (1) except as a diagnostic: every census graph
+was evaluated, including those with \|Aut\| < T.
+
+Selected n=16 VT ratios (full table in the TSV):
+
+| graph6 (sparser of G, complement) | \|Aut\| | edges | \(L/L(K_{8,8})\) |
 |---|---|---|---|
-| 16 | 11863221866496000000/7628328998218493 ≈ 1555.1534 | **≥ 1556** | yes |
-| 18 | 1016440849521377280000000/2200453451294991512083 ≈ 461.9234 | **≥ 462** | yes |
+| `O~~~~{??G@_F?N?N_Fw@~` (\(2K_8\)) | 3251404800 | 56 | 1 |
+| `O{eCN{??JpnFXkXkbu?|` | 12288 | 56 | ≈ 16.565 |
+| `O{eCN|_WGpbFXbXbbu?|` | 4096 | 56 | ≈ 19.226 |
+| `OsaCB@_EWrKrXeFwB{B{?` | 4096 | 48 | ≈ 193.49 |
 
-(Py recurrence (6) for L; C subset agrees on L(K_8,8) and L(K_9,9).)
+### Intransitive case (Step 3) — stalled
+
+The remaining graphs with \|Aut\| ≥ 1556 are intransitive. Replicating the
+paper’s S_{16} maximal-subgroup descent (116597 classes) needs GAP
+(`MaximalSubgroupClassReps`, conjugacy in \(S_{16}\)). This machine has no
+GAP install and no passwordless sudo, so the walk was not run. Scripts ready
+for when GAP is available: `scripts/s16_walk.g` (logs every class, k, forced-twin
+flag; expands only twin-free orbitals) and `scripts/vt16.g` (transitive-group
+orbital cross-check). Without that walk we **do not** claim a theorem for
+unrestricted n=16. n=18 is strictly harder (T=462 admits far more groups).
 
 ### Blow-ups of C7, C9, Petersen (Task 4a)
 
@@ -229,12 +336,13 @@ Exact records: `data/task4b_multipartite.json`.
 
 ### What is *not* proved
 
-A proof that Conjecture 1 holds at n=16 (resp. 18) requires enumerating **all**
-graphs with |Aut| ≥ 1556 (resp. 462), or an equivalent group-orbit census.
-The paper already checked the twin-free n=16 graphs above the threshold (128
-isomorphism classes) and left twin graphs with large quotients open. We have
-not completed that census. C has a `graph6` mode for n≤20 to continue the
-search.
+A proof of Conjecture 1 at n=16 still needs the intransitive half of the §5
+walk (or an equivalent 2-closed-group census). The **vertex-transitive**
+subclass is settled (unique min \(K_{8,8}\), including disconnected). Twin-free
+graphs above T=1556 were already settled by the paper (128 iso classes).
+Twin-forcing classes with quotient order ≥ 9 remain the obstruction, as in
+the paper. n=18 is open on the same intransitive side. C has a `graph6`
+mode for n≤20.
 
 ---
 
@@ -242,10 +350,12 @@ search.
 
 - `data/task1_n15_40.json`, `data/task1_n41_50.json` — family table
 - `data/task2_*.txt`, `data/task2_*.json` — tower
-- `data/task3_fit.json` — e(n) and fits
+- `data/task3_fit.json` — e(n), fits, residuals, odd/even splits
+- `data/task4_T_exact.json` — exact T, P_n, central-binomial factors
 - `data/task4a_blowups.json`, `data/task4b_multipartite.json`
-- `code/independent.py`, `likelihood.c`, `scripts/`
+- `data/task4_vt16.{json,tsv}`, `data/task4_vt18.{json,tsv}` — VT census
+- `code/independent.py`, `likelihood.c`, `code/g6aut.c`, `scripts/`
 
-Wall-clock (order of magnitude): Task 0 <5s; table n=15–40 ~70s Py + 3s C;
-n=41–50 ~4 min Py + 13s C; tower m=1–16 ~3 min C, ~1 min Py; C7/C9/Petersen
-~4 min; n=16 complete multipartite ~85s.
+Wall-clock: Task 0 <5s; table n=15–40 ~70s Py + 3s C; n=41–50 ~4 min Py + 13s C;
+tower m=1–16 **188.3 s C** / ~51 s Py (see Result C); C7/C9/Petersen ~4 min;
+n=16 complete multipartite ~85s; VT n=16 60 s; VT n=18 374 s.

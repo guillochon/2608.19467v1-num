@@ -30,13 +30,27 @@ claim a proof that the C5 constant exceeds entropy; if it does, some other
 family must overtake C5 blow-ups at finite order.
 
 **n=16 and n=18 outside C5.** The Lemma 17 threshold is |Aut|≥1556 (n=16)
-and |Aut|≥462 (n=18). Exhaustive Aut(H)-orbits of blow-ups of C7, C9, and
-Petersen all lose to \(K_{\mathrm{bal}}\) by factors \(>10^4\). Every
-complete multipartite graph on 16 vertices was evaluated by the subset
-recurrence: the unique minimum in that class is \(K_{8,8}\). The same holds
-at n=18 with unique minimum \(K_{9,9}\). We have not
-enumerated all graphs above the Aut threshold, so we do **not** prove
-Conjecture 1 at n=16 or n=18.
+and |Aut|≥462 (n=18); we recomputed T as the exact rationals
+\(11863221866496000000/7628328998218493\) and
+\(1016440849521377280000000/2200453451294991512083\). Exhaustive Aut(H)-orbits
+of blow-ups of C7, C9, and Petersen all lose to \(K_{\mathrm{bal}}\) by
+factors \(>10^4\). Every complete multipartite graph on 16 (resp. 18) vertices
+has unique minimum \(K_{8,8}\) (resp. \(K_{9,9}\)).
+
+The complete Holt–Royle / McKay–Royle census of vertex-transitive graphs,
+including disconnected ones (286 graphs on 16 vertices, 380 on 18), was
+evaluated by the subset recurrence, using \(L(G)=L(\overline{G})\) to halve
+the work. In the VT class the unique minimum is \(K_{8,8}\) at n=16 and
+\(K_{9,9}\) at n=18. This settles the transitive case unconditionally.
+
+We did not rerun geng enumeration (infeasible at these orders). We also did
+not complete the paper’s §5 maximal-subgroup descent in \(S_{16}\) (116597
+classes above T=1556): this environment has no GAP, which that walk needs.
+Twin-free classes above the threshold were already checked in the paper
+(128 iso types, none below \(K_{8,8}\)). So we do **not** prove Conjecture 1
+at unrestricted n=16 or n=18. Has the §5 enumeration been extended to 16/18,
+in particular to the 116553 twin-forcing classes (or equivalently blow-ups
+of twin-free bases of order 9–15 with \(|\mathrm{Aut}|\ge 1556\))?
 
 Code, exact JSON, and a longer write-up: `RESULTS.md` and `data/` in this
 repository (C11/GMP binary `likelihood`, Python `code/independent.py`).

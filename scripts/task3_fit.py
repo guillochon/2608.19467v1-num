@@ -144,9 +144,15 @@ def min_cost_e(m: int) -> float:
 
 
 def main():
-    py_path = ROOT / "data" / "task2_py_tower_m1_12.json"
-    py = json.loads(py_path.read_text()) if py_path.exists() else []
-    py_map = {row["m"]: row for row in py}
+    py_map = {}
+    for fname in ("task2_py_tower_m1_12.json", "task2_py_tower_m13_16.json"):
+        p = ROOT / "data" / fname
+        if p.exists():
+            rows_js = json.loads(p.read_text())
+            if isinstance(rows_js, dict) and "rows" in rows_js:
+                rows_js = rows_js["rows"]
+            for row in rows_js:
+                py_map[row["m"]] = row
 
     # parse both C tower logs
     c_map = {}
@@ -179,22 +185,42 @@ def main():
     print("\nentropy 1/(4 ln 2) =", format(ENTROPY, ".12f"))
     print("bipartite 1/2-1/(8 ln 2) =", format(BIP, ".12f"))
 
-    # fits on largest terms, odd/even m separately
+    # fits on largest terms, odd/even m separately; store residuals
+    fits = {}
     for label, pred in (
         ("odd m>=5", lambda m: m >= 5 and m % 2 == 1),
         ("even m>=6", lambda m: m >= 6 and m % 2 == 0),
         ("all m>=8", lambda m: m >= 8),
         ("all m>=10", lambda m: m >= 10),
+        ("odd all m>=1", lambda m: m % 2 == 1),
+        ("even all m>=2", lambda m: m % 2 == 0),
     ):
         data = [(n, float(e)) for n, m, e in rows if e is not None and pred(m)]
         if len(data) < 3:
             continue
-        coef, rms, _ = lstsq(data)
+        coef, rms, resid = lstsq(data)
         c, a, b = coef
         print(
             f"fit {label}: c={c:.10f} a={a:.6f} b={b:.6f} rms={rms:.3e} "
             f"c-entropy={c - float(ENTROPY):+.6f} N={len(data)}"
         )
+        fits[label] = {
+            "c": c,
+            "a": a,
+            "b": b,
+            "rms": rms,
+            "N": len(data),
+            "c_minus_entropy": c - float(ENTROPY),
+            "points": [
+                {
+                    "n": n,
+                    "e": y,
+                    "predicted": c + a * math.log2(n) / n + b / n,
+                    "residual": r,
+                }
+                for (n, y), r in zip(data, resid)
+            ],
+        }
 
     # min-cost insertion
     print("\nmin-cost insertion W/n^2 (float):")
@@ -212,6 +238,24 @@ def main():
             for n, m, e in rows
         ],
         "min_cost_W_over_n2": mc,
+        "fits": fits,
+        "parity_e_rows": {
+            "odd_m": [
+                {"m": m, "n": n, "e": format(e, ".20f")}
+                for n, m, e in rows
+                if e is not None and m % 2 == 1
+            ],
+            "even_m": [
+                {"m": m, "n": n, "e": format(e, ".20f")}
+                for n, m, e in rows
+                if e is not None and m % 2 == 0
+            ],
+        },
+        "honest_framing": (
+            "Fitted c lies in about 0.363-0.366 for the windows used, "
+            "all slightly above 1/(4 ln 2) ≈ 0.36067. This is a numerical "
+            "indication, not a proof that lim e(n) exceeds the entropy constant."
+        ),
     }
     dest = ROOT / "data" / "task3_fit.json"
     dest.write_text(json.dumps(out, indent=2) + "\n")

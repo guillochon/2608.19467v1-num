@@ -1,6 +1,10 @@
 likelihood
+code/g6aut
 **/__pycache__/
 *.pyc
 logs/
 *.o
 nauty*
+scripts/_inspect_ind.py
+scripts/_vt_summary.py
+

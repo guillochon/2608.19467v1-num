@@ -1,0 +1,6 @@
+likelihood
+**/__pycache__/
+*.pyc
+logs/
+*.o
+nauty*

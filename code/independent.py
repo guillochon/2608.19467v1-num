@@ -306,6 +306,36 @@ def blowup_aut_order(m: Sequence[int], aut_H: Sequence[Sequence[int]]) -> int:
     return fact * stab
 
 
+def complete_multipartite_aut_order(parts: Sequence[int]) -> int:
+    """|Aut| of the complete multipartite graph with given part sizes."""
+    from collections import Counter
+
+    aut = 1
+    for s in parts:
+        aut *= factorial(s)
+    for m_s in Counter(parts).values():
+        aut *= factorial(m_s)
+    return aut
+
+
+def complete_multipartite_adj_bits(parts: Sequence[int]) -> List[int]:
+    n = sum(parts)
+    adj = [0] * n
+    bounds = []
+    t = 0
+    for s in parts:
+        bounds.append((t, t + s))
+        t += s
+    for a, (lo, hi) in enumerate(bounds):
+        for i in range(lo, hi):
+            for b, (lo2, hi2) in enumerate(bounds):
+                if a == b:
+                    continue
+                for j in range(lo2, hi2):
+                    adj[i] |= 1 << j
+    return adj
+
+
 def L_blowup(adj: Sequence[Sequence[int]], m: Sequence[int], aut_H=None) -> Fraction:
     m = tuple(int(x) for x in m)
     p = len(m)

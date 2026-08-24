@@ -1,8 +1,13 @@
 # Exact graph-likelihood witnesses
 
-This is a source-only C11/GMP evaluator for selected graph families in
-Severini--Weisstein, *The minimum of the graph likelihood*
-(arXiv:2608.19467v1).  Do **not** build it on the 1 GiB review host.
+Independent exact computations for Severini–Weisstein, *The minimum of the
+graph likelihood*
+([arXiv:2608.19467v1](https://arxiv.org/abs/2608.19467)).
+Headline numbers, restricted-class theorems, and what remains open are in
+**[RESULTS.md](RESULTS.md)**.  Exact JSON/TSV records live in `data/`.
+
+This is a source-only C11/GMP evaluator for selected graph families.
+Do **not** build it on the 1 GiB review host.
 
 For a graph `G`, it evaluates the deletion recurrence
 

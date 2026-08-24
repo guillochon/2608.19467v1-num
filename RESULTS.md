@@ -303,8 +303,10 @@ filter). Live logs: `data/task4_s16_groups.log`, `logs/s16_walk.stdout`.
 The walk is **in progress** and is not a theorem. An earlier live-group
 queue hit ~6 GB RSS at ~13k classes (todo ~51k); it was restarted with
 packed generators so it can reach the paper’s 116597 classes without OOM.
-No failed `MaximalSubgroupClassReps` so far. Twin-free classes appear only
-after the large intransitive groups (all forced-twin so far).
+Snapshot in `data/task4_s16_checkpoint.txt`: 5750 conjugacy classes
+processed, 23173 remaining, 0 twin-free, 5750 forced-twin, 0 failed
+`MaximalSubgroupClassReps`. Twin-free classes appear only after the large
+intransitive groups (all forced-twin so far).
 
 **Primitive groups (finished).** `NrPrimitiveGroups(16)=22`, of which 10 have
 \(|G|\ge 1556\). One is twin-free: `PrimitiveGroup(16,18)`, order 1920, \(k=2\)

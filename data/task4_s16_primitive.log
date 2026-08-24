@@ -1,0 +1,12 @@
+# primitive groups degree 16 |G|>=1556
+11 |G|=322560 k=1 forced_twin=true
+12 |G|=5760 k=1 forced_twin=true
+13 |G|=1920 k=1 forced_twin=true
+14 |G|=2880 k=1 forced_twin=true
+16 |G|=11520 k=1 forced_twin=true
+17 |G|=5760 k=1 forced_twin=true
+18 |G|=1920 k=2 forced_twin=false
+20 |G|=40320 k=1 forced_twin=true
+21 |G|=10461394944000 k=1 forced_twin=true
+22 |G|=20922789888000 k=1 forced_twin=true
+# nprim=22 above_T=10 twinfree=1 raw=4 t_ms=26

@@ -291,15 +291,39 @@ Selected n=16 VT ratios (full table in the TSV):
 | `O{eCN|_WGpbFXbXbbu?|` | 4096 | 56 | ≈ 19.226 |
 | `OsaCB@_EWrKrXeFwB{B{?` | 4096 | 48 | ≈ 193.49 |
 
-### Intransitive case (Step 3) — stalled
+### Intransitive case (Step 3) — GAP walk running, not finished
 
-The remaining graphs with \|Aut\| ≥ 1556 are intransitive. Replicating the
-paper’s S_{16} maximal-subgroup descent (116597 classes) needs GAP
-(`MaximalSubgroupClassReps`, conjugacy in \(S_{16}\)). This machine has no
-GAP install and no passwordless sudo, so the walk was not run. Scripts ready
-for when GAP is available: `scripts/s16_walk.g` (logs every class, k, forced-twin
-flag; expands only twin-free orbitals) and `scripts/vt16.g` (transitive-group
-orbital cross-check). Without that walk we **do not** claim a theorem for
+GAP 4.11.1 is installed (`gap`, `gap-transgrp`, `gap-primgrp`). The paper’s
+§5 coverage is a largest-first maximal-subgroup descent in \(S_{16}\) of
+conjugacy-class representatives with \(|H|\ge 1556\), conjugacy taken in
+\(S_{16}\), `MaximalSubgroupClassReps` wrapped in `CALL_WITH_CATCH`. Script:
+`scripts/s16_walk.g` (heap of packed generating sets; enqueue-time conjugacy
+filter). Live logs: `data/task4_s16_groups.log`, `logs/s16_walk.stdout`.
+
+The walk is **in progress** and is not a theorem. An earlier live-group
+queue hit ~6 GB RSS at ~13k classes (todo ~51k); it was restarted with
+packed generators so it can reach the paper’s 116597 classes without OOM.
+No failed `MaximalSubgroupClassReps` so far. Twin-free classes appear only
+after the large intransitive groups (all forced-twin so far).
+
+**Primitive groups (finished).** `NrPrimitiveGroups(16)=22`, of which 10 have
+\(|G|\ge 1556\). One is twin-free: `PrimitiveGroup(16,18)`, order 1920, \(k=2\)
+pair-orbits (4 orbital graphs, 2 complement-pairs). True \(|\mathrm{Aut}|\)
+via `code/g6aut`, subset \(L\): unique minimum ratio
+\(40716679490840081664/7628328998218493 \approx 5337.56\). None beat
+\(K_{8,8}\). These graphs are vertex-transitive, so they are already in the
+Holt–Royle census. Data: `data/task4_s16_primitive.log`,
+`data/task4_s16_primitive_twinfree.g6`, `data/task4_s16_primitive_eval.json`.
+
+**Twin blow-ups of twin-free bases (partial, independent of the walk).**
+Every twin graph is a blow-up of a twin-free base. Using nauty `geng` and
+Prop. 11, all Aut(H)-orbits of part vectors with
+\(\prod m_i!\,|\mathrm{Aut}(H)|\ge 1556\) were evaluated for base orders 2–6
+(and base 7 is running). Unique minimum through base 6 is \(K_{8,8}\)
+(ratio 1, the balanced blow-up of \(K_2\)). No counterexample. This
+reconfirms the paper through base 6; bases 8–15 remain the obstruction.
+
+Without a finished \(S_{16}\) walk we **do not** claim a theorem for
 unrestricted n=16. n=18 is strictly harder (T=462 admits far more groups).
 
 ### Blow-ups of C7, C9, Petersen (Task 4a)
@@ -337,12 +361,12 @@ Exact records: `data/task4b_multipartite.json`.
 ### What is *not* proved
 
 A proof of Conjecture 1 at n=16 still needs the intransitive half of the §5
-walk (or an equivalent 2-closed-group census). The **vertex-transitive**
+walk to finish (or an equivalent 2-closed-group census). The **vertex-transitive**
 subclass is settled (unique min \(K_{8,8}\), including disconnected). Twin-free
-graphs above T=1556 were already settled by the paper (128 iso classes).
-Twin-forcing classes with quotient order ≥ 9 remain the obstruction, as in
-the paper. n=18 is open on the same intransitive side. C has a `graph6`
-mode for n≤20.
+primitive groups of degree 16 do not beat \(K_{8,8}\). Twin blow-ups through
+base order 6 do not beat \(K_{8,8}\). Twin-forcing classes with quotient order
+≥ 9 remain the obstruction, as in the paper. n=18 is open on the same
+intransitive side. C has a `graph6` mode for n≤20.
 
 ---
 
@@ -354,6 +378,7 @@ mode for n≤20.
 - `data/task4_T_exact.json` — exact T, P_n, central-binomial factors
 - `data/task4a_blowups.json`, `data/task4b_multipartite.json`
 - `data/task4_vt16.{json,tsv}`, `data/task4_vt18.{json,tsv}` — VT census
+- `data/task4_s16_primitive.log`, `data/task4_s16_primitive_twinfree.g6`, `data/task4_s16_primitive_eval.{json,tsv}`
 - `code/independent.py`, `likelihood.c`, `code/g6aut.c`, `scripts/`
 
 Wall-clock: Task 0 <5s; table n=15–40 ~70s Py + 3s C; n=41–50 ~4 min Py + 13s C;

@@ -1,0 +1,55 @@
+{
+  "n": 16,
+  "T": 1556,
+  "provenance": "PrimitiveGroup(16,*) twin-free orbital unions",
+  "raw_lines": 4,
+  "canonical_unique_labelled": 4,
+  "complement_pairs_evaluated": 2,
+  "self_complementary": 0,
+  "aut_ge_T": 2,
+  "aut_lt_T": 0,
+  "any_beat": false,
+  "n_beat": 0,
+  "best": {
+    "id": 1,
+    "g6": "OsaBA`GP@`dIHWEcas_]O",
+    "g6_complement": "O~zmumyl[^nS\\TRrdfwf~",
+    "self_complementary": false,
+    "aut": 1920,
+    "edges": 40,
+    "L": "151044187332473/398777864716561047973812574617600000000000",
+    "ratio": "40716679490840081664/7628328998218493",
+    "ratio_float": 5337.562066390816,
+    "beat": false,
+    "aut_ge_T": true
+  },
+  "seconds": 0.8879328089533374,
+  "graphs": [
+    {
+      "id": 1,
+      "g6": "OsaBA`GP@`dIHWEcas_]O",
+      "g6_complement": "O~zmumyl[^nS\\TRrdfwf~",
+      "self_complementary": false,
+      "aut": 1920,
+      "edges": 40,
+      "L": "151044187332473/398777864716561047973812574617600000000000",
+      "ratio": "40716679490840081664/7628328998218493",
+      "ratio_float": 5337.562066390816,
+      "beat": false,
+      "aut_ge_T": true
+    },
+    {
+      "id": 0,
+      "g6": "O????????????????????",
+      "g6_complement": "O~~~~~~~~~~~~~~~~~~~~",
+      "self_complementary": false,
+      "aut": 20922789888000,
+      "edges": 0,
+      "L": "1/20922789888000",
+      "ratio": "5137830662705641207660953600000000/7628328998218493",
+      "ratio_float": 6.735198054391101e+17,
+      "beat": false,
+      "aut_ge_T": true
+    }
+  ]
+}

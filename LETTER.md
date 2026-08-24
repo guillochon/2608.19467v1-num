@@ -43,14 +43,16 @@ evaluated by the subset recurrence, using \(L(G)=L(\overline{G})\) to halve
 the work. In the VT class the unique minimum is \(K_{8,8}\) at n=16 and
 \(K_{9,9}\) at n=18. This settles the transitive case unconditionally.
 
-We did not rerun geng enumeration (infeasible at these orders). We also did
-not complete the paper’s §5 maximal-subgroup descent in \(S_{16}\) (116597
-classes above T=1556): this environment has no GAP, which that walk needs.
-Twin-free classes above the threshold were already checked in the paper
-(128 iso types, none below \(K_{8,8}\)). So we do **not** prove Conjecture 1
-at unrestricted n=16 or n=18. Has the §5 enumeration been extended to 16/18,
-in particular to the 116553 twin-forcing classes (or equivalently blow-ups
-of twin-free bases of order 9–15 with \(|\mathrm{Aut}|\ge 1556\))?
+We did not rerun geng enumeration (infeasible at these orders). GAP 4.11.1
+is now installed; a maximal-subgroup descent in \(S_{16}\) above T=1556 is
+running (`scripts/s16_walk.g`) but has not finished, so we do **not** prove
+Conjecture 1 at unrestricted n=16 or n=18. Independently: the 10 primitive
+groups of degree 16 with \(|G|\ge 1556\) contribute one twin-free class
+(order 1920), whose orbital graphs lose to \(K_{8,8}\) by factor ≈ 5338;
+twin blow-ups of twin-free bases of order ≤ 6 have unique minimum \(K_{8,8}\).
+Has the §5 enumeration been extended to 16/18, in particular to the 116553
+twin-forcing classes (or equivalently blow-ups of twin-free bases of order
+9–15 with \(|\mathrm{Aut}|\ge 1556\))?
 
 Code, exact JSON, and a longer write-up: `RESULTS.md` and `data/` in this
 repository (C11/GMP binary `likelihood`, Python `code/independent.py`).

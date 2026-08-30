@@ -19,18 +19,34 @@
 #
 # Load as a library without running:
 #   S16WalkAsLibrary := true; Read("scripts/s16_walk.g");
+#
+# Resume: if data/s16_resume/meta.g exists, continue from it and append
+# to logs. Delete that directory (or set S16_FRESH := true) for a new
+# descent from S_n. Optional: S16_OUTDIR, S16_MAXCLASSES, S16_SAVE_EVERY,
+# S16_SAVE_MS.
 
 LoadPackage("transgrp");;
 
 n := 16;
 T := 1556;
 MAXK := 16;
-outdir := "/home/james/src/graph-likelihood/data/";
-logpath := Concatenation(outdir, "task4_s16_groups.log");
-g6path := Concatenation(outdir, "task4_s16_twinfree.g6");
-genspath := Concatenation(outdir, "task4_s16_gens.g");
-sumpath := Concatenation(outdir, "task4_s16_summary.txt");
-ckptpath := Concatenation(outdir, "task4_s16_checkpoint.txt");
+if not IsBound(S16_OUTDIR) then
+    S16_OUTDIR := "/home/james/src/graph-likelihood/data/";
+fi;
+if not IsBound(S16_SAVE_EVERY) then
+    S16_SAVE_EVERY := 200;          # dump every N processed classes
+fi;
+if not IsBound(S16_SAVE_MS) then
+    S16_SAVE_MS := 120000;          # and at least every 2 minutes
+fi;
+if not IsBound(S16_FRESH) then
+    S16_FRESH := false;
+fi;
+if not IsBound(S16_MAXCLASSES) then
+    S16_MAXCLASSES := 0;
+fi;
+S16_META := rec();
+S16_TODO := [];
 
 Graph6OfAdj := function(nn, adj)
     local s, bits, b, i, j, k, c;
@@ -275,32 +291,149 @@ ExpandOrbitalGraphs := function(orbs, nn, g6path)
     return nout;
 end;
 
+StripNL := function(s)
+    local nloc;
+    nloc := Length(s);
+    while nloc > 0 and (s[nloc] = '\n' or s[nloc] = '\r') do
+        nloc := nloc - 1;
+    od;
+    return s{[1..nloc]};
+end;
+
+LoadSeenKeys := function(path)
+    local f, line, key, h;
+    bins := List([1..NHASH], x -> []);
+    if not IsExistingFile(path) then
+        return 0;
+    fi;
+    f := InputTextFile(path);
+    while true do
+        line := ReadLine(f);
+        if line = fail then
+            break;
+        fi;
+        key := StripNL(line);
+        if Length(key) = 0 then
+            continue;
+        fi;
+        h := HashStr(key);
+        Add(bins[h], key);
+    od;
+    CloseStream(f);
+    return Sum(bins, Length);
+end;
+
+SaveResume := function(todo, processed, nraw, nskipk, nforced, ntwinfree,
+                       nfailedmax, ndup, elapsed_ms)
+    local tmp, final, f, r, bucket, key, nseen;
+    tmp := Concatenation(S16_OUTDIR, "s16_resume.tmp/");
+    final := Concatenation(S16_OUTDIR, "s16_resume/");
+    Exec(Concatenation("rm -rf ", tmp));
+    Exec(Concatenation("mkdir -p ", tmp));
+    PrintTo(Concatenation(tmp, "meta.g"),
+            "S16_META := rec(processed:=", processed,
+            ", nraw:=", nraw,
+            ", nskipk:=", nskipk,
+            ", nforced:=", nforced,
+            ", ntwinfree:=", ntwinfree,
+            ", nfailedmax:=", nfailedmax,
+            ", ndup:=", ndup,
+            ", elapsed_ms:=", elapsed_ms,
+            ", ntodo:=", Length(todo), ");\n");
+    f := OutputTextFile(Concatenation(tmp, "todo.g"), false);
+    SetPrintFormattingStatus(f, false);
+    PrintTo(f, "S16_TODO := [\n");
+    for r in todo do
+        AppendTo(f, r, ",\n");
+    od;
+    AppendTo(f, "];\n");
+    CloseStream(f);
+    nseen := 0;
+    f := OutputTextFile(Concatenation(tmp, "seen.txt"), false);
+    SetPrintFormattingStatus(f, false);
+    for bucket in bins do
+        for key in bucket do
+            AppendTo(f, key, "\n");
+            nseen := nseen + 1;
+        od;
+    od;
+    CloseStream(f);
+    Exec(Concatenation("rm -rf ", final, " && mv ", tmp, " ", final));
+    Print("saved resume classes=", processed, " todo=", Length(todo),
+          " seen=", nseen, "\n");
+end;
+
+TryLoadResume := function()
+    local final, metafile, todofile, seenfile, nseen;
+    final := Concatenation(S16_OUTDIR, "s16_resume/");
+    metafile := Concatenation(final, "meta.g");
+    todofile := Concatenation(final, "todo.g");
+    seenfile := Concatenation(final, "seen.txt");
+    if S16_FRESH then
+        return fail;
+    fi;
+    if not IsExistingFile(metafile) or not IsExistingFile(todofile) then
+        return fail;
+    fi;
+    Read(metafile);
+    Read(todofile);
+    nseen := LoadSeenKeys(seenfile);
+    Print("RESUME classes=", S16_META.processed, " todo=", Length(S16_TODO),
+          " seen=", nseen, " elapsed_s=", QuoInt(S16_META.elapsed_ms, 1000), "\n");
+    return true;
+end;
+
 S16WalkMain := function()
     local S, todo, nraw, nskipk, nforced, ntwinfree, nfailedmax, ndup,
-          processed, t0, G, orbs, k, ft, gens, caught, M, tmark, tseen, tmax;
+          processed, t0, G, orbs, k, ft, gens, caught, M, tmark, tseen, tmax,
+          logpath, g6path, genspath, sumpath, ckptpath, saved_ms, lastsave,
+          elapsed, do_save, resumed;
 
-    PrintTo(logpath, "# S_", n, " maximal-subgroup descent, T=", T, "\n");
-    PrintTo(g6path, "");
-    PrintTo(genspath, "# generators of each class representative; read with Read()\n");
-    PrintTo(ckptpath, "");
+    logpath := Concatenation(S16_OUTDIR, "task4_s16_groups.log");
+    g6path := Concatenation(S16_OUTDIR, "task4_s16_twinfree.g6");
+    genspath := Concatenation(S16_OUTDIR, "task4_s16_gens.g");
+    sumpath := Concatenation(S16_OUTDIR, "task4_s16_summary.txt");
+    ckptpath := Concatenation(S16_OUTDIR, "task4_s16_checkpoint.txt");
 
-    S := SymmetricGroup(n);
-    todo := [];
-    HeapPush(todo, PackG(S));
-    nraw := 0;
-    nskipk := 0;
-    nforced := 0;
-    ntwinfree := 0;
-    nfailedmax := 0;
-    ndup := 0;
-    processed := 0;
-    t0 := Runtime();
     tseen := 0;
     tmax := 0;
+    t0 := Runtime();
+    lastsave := t0;
+    resumed := TryLoadResume();
 
-    tmark := Runtime();
-    AlreadySeen(S);
-    tseen := tseen + Runtime() - tmark;
+    if resumed = true then
+        todo := S16_TODO;
+        processed := S16_META.processed;
+        nraw := S16_META.nraw;
+        nskipk := S16_META.nskipk;
+        nforced := S16_META.nforced;
+        ntwinfree := S16_META.ntwinfree;
+        nfailedmax := S16_META.nfailedmax;
+        ndup := S16_META.ndup;
+        saved_ms := S16_META.elapsed_ms;
+        AppendTo(logpath, "# RESUME processed=", processed, " todo=",
+                 Length(todo), "\n");
+    else
+        bins := List([1..NHASH], x -> []);
+        PrintTo(logpath, "# S_", n, " maximal-subgroup descent, T=", T, "\n");
+        PrintTo(g6path, "");
+        PrintTo(genspath, "# generators of each class representative; read with Read()\n");
+        PrintTo(ckptpath, "");
+        S := SymmetricGroup(n);
+        todo := [];
+        HeapPush(todo, PackG(S));
+        nraw := 0;
+        nskipk := 0;
+        nforced := 0;
+        ntwinfree := 0;
+        nfailedmax := 0;
+        ndup := 0;
+        processed := 0;
+        saved_ms := 0;
+        tmark := Runtime();
+        AlreadySeen(S);
+        tseen := tseen + Runtime() - tmark;
+    fi;
 
     while Length(todo) > 0 do
         G := UnpackG(HeapPop(todo));
@@ -330,22 +463,23 @@ S16WalkMain := function()
         else
             nskipk := nskipk + 1;
         fi;
+        elapsed := saved_ms + Runtime() - t0;
         if RemInt(processed, 1) = 0 and processed <= 20 then
             Print("classes=", processed, " todo=", Length(todo), " raw=", nraw,
                   " twinfree=", ntwinfree, " forced=", nforced, " dup=", ndup,
                   " last|G|=", Size(G), " k=", k, " ft=", ft,
-                  " t_s=", QuoInt(Runtime()-t0, 1000),
+                  " t_s=", QuoInt(elapsed, 1000),
                   " seen_ms=", tseen, " max_ms=", tmax, "\n");
         elif RemInt(processed, 25) = 0 then
             Print("classes=", processed, " todo=", Length(todo), " raw=", nraw,
                   " twinfree=", ntwinfree, " forced=", nforced, " dup=", ndup,
                   " last|G|=", Size(G), " k=", k, " ft=", ft,
-                  " t_s=", QuoInt(Runtime()-t0, 1000),
+                  " t_s=", QuoInt(elapsed, 1000),
                   " seen_ms=", tseen, " max_ms=", tmax, "\n");
             PrintTo(ckptpath, "classes=", processed, " todo=", Length(todo),
                     " twinfree=", ntwinfree, " forced=", nforced,
                     " failedmax=", nfailedmax, " dup=", ndup, " raw=", nraw,
-                    " t_ms=", Runtime()-t0, "\n");
+                    " t_ms=", elapsed, "\n");
         fi;
         tmark := Runtime();
         caught := CALL_WITH_CATCH(MaximalSubgroupClassReps, [G]);
@@ -369,6 +503,22 @@ S16WalkMain := function()
                 fi;
             od;
         fi;
+        do_save := (processed <= 20) or
+                   (Runtime() - lastsave >= S16_SAVE_MS) or
+                   (RemInt(processed, S16_SAVE_EVERY) = 0 and
+                    Runtime() - lastsave >= 60000);
+        if S16_MAXCLASSES > 0 and processed >= S16_MAXCLASSES then
+            do_save := true;
+        fi;
+        if do_save then
+            SaveResume(todo, processed, nraw, nskipk, nforced, ntwinfree,
+                       nfailedmax, ndup, saved_ms + Runtime() - t0);
+            lastsave := Runtime();
+        fi;
+        if S16_MAXCLASSES > 0 and processed >= S16_MAXCLASSES then
+            Print("STOP S16_MAXCLASSES=", S16_MAXCLASSES, "\n");
+            return;
+        fi;
     od;
 
     PrintTo(sumpath,
@@ -379,14 +529,16 @@ S16WalkMain := function()
             "raw_twinfree_graphs=", nraw, "\n",
             "failed_maxsub=", nfailedmax, "\n",
             "dup_enqueue=", ndup, "\n",
-            "time_ms=", Runtime()-t0, "\n");
+            "time_ms=", saved_ms + Runtime() - t0, "\n");
     AppendTo(logpath, "# classes=", processed, " twin_force=", nforced,
              " twin_free=", ntwinfree, " skip=", nskipk, " raw=", nraw,
              " failed_maxsub=", nfailedmax, " dup=", ndup,
-             " time_ms=", Runtime()-t0, "\n");
+             " time_ms=", saved_ms + Runtime() - t0, "\n");
     Print("DONE classes=", processed, " raw=", nraw, " forced=", nforced,
           " twinfree=", ntwinfree, " failedmax=", nfailedmax, " dup=", ndup,
-          " t_s=", QuoInt(Runtime()-t0, 1000), "\n");
+          " t_s=", QuoInt(saved_ms + Runtime() - t0, 1000), "\n");
+    Exec(Concatenation("rm -rf ", S16_OUTDIR, "s16_resume ",
+                       S16_OUTDIR, "s16_resume.tmp"));
 end;
 
 if not IsBound(S16WalkAsLibrary) then

@@ -7,4 +7,6 @@ logs/
 nauty*
 scripts/_inspect_ind.py
 scripts/_vt_summary.py
+data/s16_resume/
+data/s16_resume.tmp/
 

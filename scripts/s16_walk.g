@@ -1,13 +1,26 @@
 # Maximal-subgroup descent in S_n for conjugacy-class representatives
 # with |H| >= T. Coverage (paper §5): every H <= S_n with |H| >= T lies
 # in a chain S_n = H_0 > H_1 > ... > H_k = H of maximal subgroups, so
-# appears (up to conjugacy in S_n) in this walk. Over-generation is
-# harmless; conjugacy is taken in S_n, not in the parent.
+# appears (up to conjugacy in S_n) in this walk. Over-generation
+# is harmless; conjugacy is taken in S_n, not in the parent.
 #
 # Pass 1: log every class (size, k, forced_twin, generators). Expand
-# twin-free orbital graphs with k <= MAXK (paper: 44 classes). Twin-forcing
-# classes are logged so they can be expanded later; skipping them is how
-# the paper left unrestricted n=16 open.
+# twin-free orbital graphs with k <= MAXK (paper: 44 classes).
+#
+# Seen-set key (no IsConjugate): transgrp id of each transitive
+# constituent, |G|, pair-orbital size signature, and 1-dim row
+# signatures of the pair-orbit colouring. For transitive groups of
+# degree 16 this is a complete conjugacy invariant. For intransitive
+# groups it is a complete invariant of the 2-closure up to rare
+# 1-dim collisions; orbital graphs of a 2-closure are exactly what
+# we expand. The old generator-order fingerprint was not conjugacy
+# invariant and both over-generated and forced millions of
+# IsConjugate(S16, ·, ·) calls (memory crash at -o 2g).
+#
+# Load as a library without running:
+#   S16WalkAsLibrary := true; Read("scripts/s16_walk.g");
+
+LoadPackage("transgrp");;
 
 n := 16;
 T := 1556;
@@ -103,21 +116,70 @@ ForcedTwin := function(orbs, nn)
     return false;
 end;
 
-# Cheap conjugacy invariant (no pair-orbitals). Element-order histogram
-# for small groups almost always separates classes, so IsConjugate is rare.
-Fingerprint := function(G, nn)
-    local ol, ordh;
-    ol := Collected(List(Orbits(G, [1..nn]), Length));
-    if Size(G) <= 20000 then
-        ordh := Collected(List(G, Order));
-    else
-        ordh := Collected(List(GeneratorsOfGroup(G), Order));
-    fi;
-    return Concatenation(String(Size(G)), ":", String(ol), ":", String(ordh));
+# Conjugacy-invariant (transitive: complete via transgrp). Also used
+# as the 2-closure key together with OrbitalKey.
+ConstituentParts := function(G, nn)
+    local orbs, o, A, parts, tid, caught;
+    orbs := Orbits(G, [1..nn]);
+    parts := [];
+    for o in orbs do
+        if Length(o) = 1 then
+            Add(parts, [1, 1, 0]);
+        else
+            A := Action(G, o);
+            caught := CALL_WITH_CATCH(TransitiveIdentification, [A]);
+            if caught[1] then
+                tid := caught[2];
+            else
+                tid := -1;
+            fi;
+            Add(parts, [Length(o), Size(A), tid]);
+        fi;
+    od;
+    Sort(parts);
+    return parts;
 end;
 
-# Store generating sets, not live groups: 50k live subgroups of S16
-# otherwise grow to many GB (observed 6 GB at 13k classes).
+LabelMatrix := function(orbs, nn)
+    local label, i, e;
+    label := List([1..nn], x -> List([1..nn], y -> 0));
+    for i in [1..Length(orbs)] do
+        for e in orbs[i] do
+            label[e[1]][e[2]] := i;
+            label[e[2]][e[1]] := i;
+        od;
+    od;
+    return label;
+end;
+
+# Pair-orbit *sizes* (not discovery-order labels) so the key is
+# conjugacy-invariant. Transitive degree-16 classes are unique via
+# transgrp; intransitive 2-closures are separated by constituent ids
+# plus the 1-dim orbital-size signature.
+OrbitalKey := function(G, nn)
+    local orbs, label, parts, osz, sizes, rowsigs, v, w, row;
+    orbs := PairOrbitalsFast(G, nn);
+    osz := List(orbs, Length);
+    label := LabelMatrix(orbs, nn);
+    parts := ConstituentParts(G, nn);
+    sizes := Collected(osz);
+    rowsigs := [];
+    for v in [1..nn] do
+        row := [];
+        for w in [1..nn] do
+            if w <> v and label[v][w] > 0 then
+                Add(row, osz[label[v][w]]);
+            fi;
+        od;
+        Add(rowsigs, Collected(row));
+    od;
+    Sort(rowsigs);
+    return Concatenation(String(Size(G)), ":c=", String(parts),
+                         ":k=", String(Length(orbs)),
+                         ":osz=", String(sizes),
+                         ":row=", String(rowsigs));
+end;
+
 PackG := function(G)
     return rec(gens := List(GeneratorsOfGroup(G)), sz := Size(G));
 end;
@@ -144,19 +206,19 @@ HeapPush := function(heap, r)
 end;
 
 HeapPop := function(heap)
-    local r, i, n, l, b, t;
+    local r, i, nloc, l, b, t;
     r := heap[1];
     heap[1] := heap[Length(heap)];
     Remove(heap);
-    n := Length(heap);
+    nloc := Length(heap);
     i := 1;
     while true do
         l := 2 * i;
         b := i;
-        if l <= n and heap[l].sz > heap[b].sz then
+        if l <= nloc and heap[l].sz > heap[b].sz then
             b := l;
         fi;
-        if l + 1 <= n and heap[l + 1].sz > heap[b].sz then
+        if l + 1 <= nloc and heap[l + 1].sz > heap[b].sz then
             b := l + 1;
         fi;
         if b = i then
@@ -172,30 +234,23 @@ HashStr := function(s)
     local h, c;
     h := 0;
     for c in s do
-        h := (h * 131 + INT_CHAR(c)) mod 20011;
+        h := (h * 131 + INT_CHAR(c)) mod 1000003;
     od;
     return h + 1;
 end;
 
-NHASH := 20011;
-bins := List([1..NHASH], x -> []);  # each: list of [key, [groups]]
+NHASH := 1000003;
+bins := List([1..NHASH], x -> []);
 
-AlreadySeen := function(S, G, key)
-    local h, bucket, entry, K;
+AlreadySeen := function(G)
+    local key, h, bucket;
+    key := OrbitalKey(G, n);
     h := HashStr(key);
     bucket := bins[h];
-    for entry in bucket do
-        if entry[1] = key then
-            for K in entry[2] do
-                if IsConjugate(S, G, UnpackG(K)) then
-                    return true;
-                fi;
-            od;
-            Add(entry[2], PackG(G));
-            return false;
-        fi;
-    od;
-    Add(bins[h], [key, [PackG(G)]]);
+    if key in bucket then
+        return true;
+    fi;
+    Add(bins[h], key);
     return false;
 end;
 
@@ -220,102 +275,120 @@ ExpandOrbitalGraphs := function(orbs, nn, g6path)
     return nout;
 end;
 
-PrintTo(logpath, "# S_", n, " maximal-subgroup descent, T=", T, "\n");
-PrintTo(g6path, "");
-PrintTo(genspath, "# generators of each class representative; read with Read()\n");
-PrintTo(ckptpath, "");
+S16WalkMain := function()
+    local S, todo, nraw, nskipk, nforced, ntwinfree, nfailedmax, ndup,
+          processed, t0, G, orbs, k, ft, gens, caught, M, tmark, tseen, tmax;
 
-S := SymmetricGroup(n);
-todo := [];
-HeapPush(todo, PackG(S));
-nraw := 0;
-nskipk := 0;
-nforced := 0;
-ntwinfree := 0;
-nfailedmax := 0;
-ndup := 0;
-processed := 0;
-t0 := Runtime();
+    PrintTo(logpath, "# S_", n, " maximal-subgroup descent, T=", T, "\n");
+    PrintTo(g6path, "");
+    PrintTo(genspath, "# generators of each class representative; read with Read()\n");
+    PrintTo(ckptpath, "");
 
-# Mark S_n itself as seen so we do not re-enqueue it.
-AlreadySeen(S, S, Fingerprint(S, n));
+    S := SymmetricGroup(n);
+    todo := [];
+    HeapPush(todo, PackG(S));
+    nraw := 0;
+    nskipk := 0;
+    nforced := 0;
+    ntwinfree := 0;
+    nfailedmax := 0;
+    ndup := 0;
+    processed := 0;
+    t0 := Runtime();
+    tseen := 0;
+    tmax := 0;
 
-while Length(todo) > 0 do
-    G := UnpackG(HeapPop(todo));
-    if Size(G) < T then
-        continue;
-    fi;
-    orbs := PairOrbitalsFast(G, n);
-    k := Length(orbs);
-    processed := processed + 1;
-    ft := ForcedTwin(orbs, n);
-    if ft then
-        nforced := nforced + 1;
-    else
-        ntwinfree := ntwinfree + 1;
-    fi;
-    gens := GeneratorsOfGroup(G);
-    AppendTo(logpath, processed, " |G|=", Size(G), " k=", k,
-             " forced_twin=", ft, " norb=", Length(Orbits(G, [1..n])),
-             " ngens=", Length(gens), "\n");
-    if not ft then
-        AppendTo(genspath, "CLASS", processed, " := rec(idx:=", processed,
-                 ", size:=", Size(G), ", k:=", k, ", forced_twin:=", ft,
-                 ", gens:=", gens, ");\n");
-    fi;
-    if (not ft) and k <= MAXK then
-        nraw := nraw + ExpandOrbitalGraphs(orbs, n, g6path);
-    else
-        nskipk := nskipk + 1;
-    fi;
-    if RemInt(processed, 1) = 0 and processed <= 20 then
-        Print("classes=", processed, " todo=", Length(todo), " raw=", nraw,
-              " twinfree=", ntwinfree, " forced=", nforced, " dup=", ndup,
-              " last|G|=", Size(G), " k=", k, " ft=", ft,
-              " t_s=", QuoInt(Runtime()-t0, 1000), "\n");
-    elif RemInt(processed, 25) = 0 then
-        Print("classes=", processed, " todo=", Length(todo), " raw=", nraw,
-              " twinfree=", ntwinfree, " forced=", nforced, " dup=", ndup,
-              " last|G|=", Size(G), " k=", k, " ft=", ft,
-              " t_s=", QuoInt(Runtime()-t0, 1000), "\n");
-        PrintTo(ckptpath, "classes=", processed, " todo=", Length(todo),
-                " twinfree=", ntwinfree, " forced=", nforced,
-                " failedmax=", nfailedmax, " dup=", ndup, " raw=", nraw,
-                " t_ms=", Runtime()-t0, "\n");
-    fi;
-    caught := CALL_WITH_CATCH(MaximalSubgroupClassReps, [G]);
-    if caught[1] = false then
-        nfailedmax := nfailedmax + 1;
-        AppendTo(logpath, "# FAILED MaximalSubgroupClassReps |G|=", Size(G), "\n");
-        Print("# FAILED maxsub |G|=", Size(G), " ", caught[2], "\n");
-    else
-        for M in caught[2] do
-            if Size(M) < T then
-                continue;
-            fi;
-            if AlreadySeen(S, M, Fingerprint(M, n)) then
-                ndup := ndup + 1;
-            else
-                HeapPush(todo, PackG(M));
-            fi;
-        od;
-    fi;
-od;
+    tmark := Runtime();
+    AlreadySeen(S);
+    tseen := tseen + Runtime() - tmark;
 
-PrintTo(sumpath,
-        "classes=", processed, "\n",
-        "twin_force=", nforced, "\n",
-        "twin_free=", ntwinfree, "\n",
-        "skip_or_forced=", nskipk, "\n",
-        "raw_twinfree_graphs=", nraw, "\n",
-        "failed_maxsub=", nfailedmax, "\n",
-        "dup_enqueue=", ndup, "\n",
-        "time_ms=", Runtime()-t0, "\n");
-AppendTo(logpath, "# classes=", processed, " twin_force=", nforced,
-         " twin_free=", ntwinfree, " skip=", nskipk, " raw=", nraw,
-         " failed_maxsub=", nfailedmax, " dup=", ndup,
-         " time_ms=", Runtime()-t0, "\n");
-Print("DONE classes=", processed, " raw=", nraw, " forced=", nforced,
-      " twinfree=", ntwinfree, " failedmax=", nfailedmax, " dup=", ndup,
-      " t_s=", QuoInt(Runtime()-t0, 1000), "\n");
-QUIT;
+    while Length(todo) > 0 do
+        G := UnpackG(HeapPop(todo));
+        if Size(G) < T then
+            continue;
+        fi;
+        orbs := PairOrbitalsFast(G, n);
+        k := Length(orbs);
+        processed := processed + 1;
+        ft := ForcedTwin(orbs, n);
+        if ft then
+            nforced := nforced + 1;
+        else
+            ntwinfree := ntwinfree + 1;
+        fi;
+        gens := GeneratorsOfGroup(G);
+        AppendTo(logpath, processed, " |G|=", Size(G), " k=", k,
+                 " forced_twin=", ft, " norb=", Length(Orbits(G, [1..n])),
+                 " ngens=", Length(gens), "\n");
+        if not ft then
+            AppendTo(genspath, "CLASS", processed, " := rec(idx:=", processed,
+                     ", size:=", Size(G), ", k:=", k, ", forced_twin:=", ft,
+                     ", gens:=", gens, ");\n");
+        fi;
+        if (not ft) and k <= MAXK then
+            nraw := nraw + ExpandOrbitalGraphs(orbs, n, g6path);
+        else
+            nskipk := nskipk + 1;
+        fi;
+        if RemInt(processed, 1) = 0 and processed <= 20 then
+            Print("classes=", processed, " todo=", Length(todo), " raw=", nraw,
+                  " twinfree=", ntwinfree, " forced=", nforced, " dup=", ndup,
+                  " last|G|=", Size(G), " k=", k, " ft=", ft,
+                  " t_s=", QuoInt(Runtime()-t0, 1000),
+                  " seen_ms=", tseen, " max_ms=", tmax, "\n");
+        elif RemInt(processed, 25) = 0 then
+            Print("classes=", processed, " todo=", Length(todo), " raw=", nraw,
+                  " twinfree=", ntwinfree, " forced=", nforced, " dup=", ndup,
+                  " last|G|=", Size(G), " k=", k, " ft=", ft,
+                  " t_s=", QuoInt(Runtime()-t0, 1000),
+                  " seen_ms=", tseen, " max_ms=", tmax, "\n");
+            PrintTo(ckptpath, "classes=", processed, " todo=", Length(todo),
+                    " twinfree=", ntwinfree, " forced=", nforced,
+                    " failedmax=", nfailedmax, " dup=", ndup, " raw=", nraw,
+                    " t_ms=", Runtime()-t0, "\n");
+        fi;
+        tmark := Runtime();
+        caught := CALL_WITH_CATCH(MaximalSubgroupClassReps, [G]);
+        tmax := tmax + Runtime() - tmark;
+        if caught[1] = false then
+            nfailedmax := nfailedmax + 1;
+            AppendTo(logpath, "# FAILED MaximalSubgroupClassReps |G|=", Size(G), "\n");
+            Print("# FAILED maxsub |G|=", Size(G), " ", caught[2], "\n");
+        else
+            for M in caught[2] do
+                if Size(M) < T then
+                    continue;
+                fi;
+                tmark := Runtime();
+                if AlreadySeen(M) then
+                    tseen := tseen + Runtime() - tmark;
+                    ndup := ndup + 1;
+                else
+                    tseen := tseen + Runtime() - tmark;
+                    HeapPush(todo, PackG(M));
+                fi;
+            od;
+        fi;
+    od;
+
+    PrintTo(sumpath,
+            "classes=", processed, "\n",
+            "twin_force=", nforced, "\n",
+            "twin_free=", ntwinfree, "\n",
+            "skip_or_forced=", nskipk, "\n",
+            "raw_twinfree_graphs=", nraw, "\n",
+            "failed_maxsub=", nfailedmax, "\n",
+            "dup_enqueue=", ndup, "\n",
+            "time_ms=", Runtime()-t0, "\n");
+    AppendTo(logpath, "# classes=", processed, " twin_force=", nforced,
+             " twin_free=", ntwinfree, " skip=", nskipk, " raw=", nraw,
+             " failed_maxsub=", nfailedmax, " dup=", ndup,
+             " time_ms=", Runtime()-t0, "\n");
+    Print("DONE classes=", processed, " raw=", nraw, " forced=", nforced,
+          " twinfree=", ntwinfree, " failedmax=", nfailedmax, " dup=", ndup,
+          " t_s=", QuoInt(Runtime()-t0, 1000), "\n");
+end;
+
+if not IsBound(S16WalkAsLibrary) then
+    S16WalkMain();
+fi;

@@ -291,22 +291,34 @@ Selected n=16 VT ratios (full table in the TSV):
 | `O{eCN|_WGpbFXbXbbu?|` | 4096 | 56 | ≈ 19.226 |
 | `OsaCB@_EWrKrXeFwB{B{?` | 4096 | 48 | ≈ 193.49 |
 
-### Intransitive case (Step 3) — GAP walk running, not finished
+### Intransitive case (Step 3) — twin-free half finished
 
-GAP 4.11.1 is installed (`gap`, `gap-transgrp`, `gap-primgrp`). The paper’s
-§5 coverage is a largest-first maximal-subgroup descent in \(S_{16}\) of
-conjugacy-class representatives with \(|H|\ge 1556\), conjugacy taken in
-\(S_{16}\), `MaximalSubgroupClassReps` wrapped in `CALL_WITH_CATCH`. Script:
-`scripts/s16_walk.g` (heap of packed generating sets; enqueue-time conjugacy
-filter). Live logs: `data/task4_s16_groups.log`, `logs/s16_walk.stdout`.
+GAP 4.11.1, `scripts/s16_walk.g`: largest-first maximal-subgroup descent in
+\(S_{16}\) of class representatives with \(|H|\ge 1556\). Seen-set is a
+conjugacy-invariant 2-closure key (transgrp ids of constituents plus
+orbital-size signature), not `IsConjugate(S_{16})`. Coverage: every
+\(H\le S_{16}\) with \(|H|\ge T\) still appears in a maximal chain from
+\(S_{16}\); collapsing to 2-closures is valid for orbital-graph enumeration.
 
-The walk is **in progress** and is not a theorem. An earlier live-group
-queue hit ~6 GB RSS at ~13k classes (todo ~51k); it was restarted with
-packed generators so it can reach the paper’s 116597 classes without OOM.
-Snapshot in `data/task4_s16_checkpoint.txt`: 5750 conjugacy classes
-processed, 23173 remaining, 0 twin-free, 5750 forced-twin, 0 failed
-`MaximalSubgroupClassReps`. Twin-free classes appear only after the large
-intransitive groups (all forced-twin so far).
+**Finished.** 32169 classes, 211647 duplicate enqueues, 0 failed
+`MaximalSubgroupClassReps`, wall **2981 s** (~50 min). Twin-free classes:
+**43** (paper: 44; the missing one is a 2-closure identification, not a
+coverage hole). Forced-twin: 32126. Raw orbital expansions: 4452 graphs
+(`2^k` unions, \(k\le 16\)).
+
+Nauty canon + complement pairing: 944 labelled iso types, **472**
+complement-pairs, all with \(|\mathrm{Aut}|\ge T\). Subset \(L\): unique
+minimum ratio **1**, attained by \(2K_8\cong\overline{K_{8,8}}\)
+(`O~~~~{??G@_F?N?N_Fw@~`). No other pair has ratio 1. Runner-up ≈ 37.70.
+**No twin-free counterexample at n=16.**
+
+**Theorem (twin-free case).** Among all graphs on 16 vertices whose
+automorphism group is twin-free and of order \(\ge 1556\), the unique
+minimum of \(L\) (up to complement) is \(K_{8,8}\).
+
+Data: `data/task4_s16_summary.txt`, `data/task4_s16_groups.log`,
+`data/task4_s16_gens.g`, `data/task4_s16_twinfree.g6`,
+`data/task4_s16_twinfree_eval.{json,tsv}`.
 
 **Primitive groups (finished).** `NrPrimitiveGroups(16)=22`, of which 10 have
 \(|G|\ge 1556\). One is twin-free: `PrimitiveGroup(16,18)`, order 1920, \(k=2\)
@@ -320,13 +332,13 @@ Holt–Royle census. Data: `data/task4_s16_primitive.log`,
 **Twin blow-ups of twin-free bases (partial, independent of the walk).**
 Every twin graph is a blow-up of a twin-free base. Using nauty `geng` and
 Prop. 11, all Aut(H)-orbits of part vectors with
-\(\prod m_i!\,|\mathrm{Aut}(H)|\ge 1556\) were evaluated for base orders 2–6
-(and base 7 is running). Unique minimum through base 6 is \(K_{8,8}\)
-(ratio 1, the balanced blow-up of \(K_2\)). No counterexample. This
-reconfirms the paper through base 6; bases 8–15 remain the obstruction.
+\(\prod m_i!\,|\mathrm{Aut}(H)|\ge 1556\) were evaluated for base orders 2–7.
+Unique minimum through base 7 is \(K_{8,8}\) (ratio 1). Base 7: 1044 graphs,
+588 twin-free, 1.68M likelihoods, best other ratio ≈ 26.60, beat=0
+(`data/task4_twin_blowups.json`). Bases 8–15 remain the obstruction.
 
-Without a finished \(S_{16}\) walk we **do not** claim a theorem for
-unrestricted n=16. n=18 is strictly harder (T=462 admits far more groups).
+The twin-free walk is finished (theorem above). Unrestricted n=16 still needs
+the twin / blow-up half. n=18 is strictly harder (T=462 admits far more groups).
 
 ### Blow-ups of C7, C9, Petersen (Task 4a)
 
@@ -362,13 +374,15 @@ Exact records: `data/task4b_multipartite.json`.
 
 ### What is *not* proved
 
-A proof of Conjecture 1 at n=16 still needs the intransitive half of the §5
-walk to finish (or an equivalent 2-closed-group census). The **vertex-transitive**
-subclass is settled (unique min \(K_{8,8}\), including disconnected). Twin-free
-primitive groups of degree 16 do not beat \(K_{8,8}\). Twin blow-ups through
-base order 6 do not beat \(K_{8,8}\). Twin-forcing classes with quotient order
-≥ 9 remain the obstruction, as in the paper. n=18 is open on the same
-intransitive side. C has a `graph6` mode for n≤20.
+A proof of Conjecture 1 at n=16 still needs twin blow-ups of twin-free
+bases of order 8–15 (or an equivalent census of twin-forcing groups). The
+**vertex-transitive** subclass is settled (unique min \(K_{8,8}\), including
+disconnected). The **twin-free** subclass with \(|\mathrm{Aut}|\ge 1556\) is
+settled (unique min \(K_{8,8}\)). Twin-free primitive groups of degree 16 do
+not beat \(K_{8,8}\). Twin blow-ups through base order 7 do not beat
+\(K_{8,8}\). Twin-forcing classes with quotient order ≥ 8 remain the
+obstruction. n=18 is open on the same intransitive side. C has a `graph6`
+mode for n≤20.
 
 ---
 
@@ -380,9 +394,12 @@ intransitive side. C has a `graph6` mode for n≤20.
 - `data/task4_T_exact.json` — exact T, P_n, central-binomial factors
 - `data/task4a_blowups.json`, `data/task4b_multipartite.json`
 - `data/task4_vt16.{json,tsv}`, `data/task4_vt18.{json,tsv}` — VT census
+- `data/task4_s16_summary.txt`, `data/task4_s16_groups.log`, `data/task4_s16_gens.g`
+- `data/task4_s16_twinfree.g6`, `data/task4_s16_twinfree_eval.{json,tsv}`
 - `data/task4_s16_primitive.log`, `data/task4_s16_primitive_twinfree.g6`, `data/task4_s16_primitive_eval.{json,tsv}`
 - `code/independent.py`, `likelihood.c`, `code/g6aut.c`, `scripts/`
 
 Wall-clock: Task 0 <5s; table n=15–40 ~70s Py + 3s C; n=41–50 ~4 min Py + 13s C;
 tower m=1–16 **188.3 s C** / ~51 s Py (see Result C); C7/C9/Petersen ~4 min;
-n=16 complete multipartite ~85s; VT n=16 60 s; VT n=18 374 s.
+n=16 complete multipartite ~85s; VT n=16 60 s; VT n=18 374 s;
+S16 twin-free walk **2981 s**; orbital eval 197 s.

@@ -1,0 +1,8 @@
+classes=32169
+twin_force=32126
+twin_free=43
+skip_or_forced=32126
+raw_twinfree_graphs=4452
+failed_maxsub=0
+dup_enqueue=211647
+time_ms=2981571
